@@ -1,0 +1,79 @@
+services:
+  # RabbitMQ Message Broker
+  rabbitmq:
+    image: rabbitmq:3-management-alpine
+    container_name: opensound-rabbitmq
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    environment:
+      RABBITMQ_DEFAULT_USER: admin
+      RABBITMQ_DEFAULT_PASS: admin
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    networks:
+      - opensound-network
+    healthcheck:
+      test: rabbitmq-diagnostics -q ping
+      interval: 30s
+      timeout: 10s
+      retries: 5
+    restart: unless-stopped
+
+  # Main Server
+  server:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: opensound-server
+    ports:
+      - "1212:1212"
+      - "8080:8080"
+    environment:
+      - NODE_ENV=production
+      - PORT=1212
+      - WWS_PORT=8080
+      - RABBIT_MQ_URL=amqp://admin:admin@rabbitmq:5672
+      - DOWNLOAD_QUEUE=download_queue
+      - POCKETBASE_ADDR=http://pocketbase:8090
+      - EMAIL=${EMAIL}
+      - PASSWORD=${PASSWORD}
+    volumes:
+      - ./plugins:/app/plugins
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+    networks:
+      - opensound-network
+    restart: unless-stopped
+    command: node server.mjs
+
+  # Worker Service
+  worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: opensound-worker
+    environment:
+      - NODE_ENV=production
+      - RABBIT_MQ_URL=amqp://admin:admin@rabbitmq:5672
+      - DOWNLOAD_QUEUE=download_queue
+      - POCKETBASE_ADDR=http://pocketbase:8090
+      - EMAIL=${EMAIL}
+      - PASSWORD=${PASSWORD}
+    volumes:
+      - ./plugins:/app/plugins
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+    networks:
+      - opensound-network
+    restart: unless-stopped
+    command: node worker.mjs
+
+networks:
+  opensound-network:
+    external: true
+
+volumes:
+  rabbitmq_data:

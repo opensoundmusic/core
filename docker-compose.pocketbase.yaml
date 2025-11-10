@@ -1,0 +1,25 @@
+services:
+  pocketbase:
+    build:
+      context: ./db
+      dockerfile: Dockerfile
+    container_name: opensound-pocketbase
+    ports:
+      - "8090:8090"
+    volumes:
+      - pocketbase_data:/pb_data
+    networks:
+      - opensound-network
+    healthcheck:
+      test: wget --no-verbose --tries=1 --spider http://localhost:8090/api/health || exit 1
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+networks:
+  opensound-network:
+    external: true
+
+volumes:
+  pocketbase_data:
