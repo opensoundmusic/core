@@ -14,7 +14,7 @@ DOWNLOAD_QUEUE=download_queue
 POCKETBASE_ADDR=http://0.0.0.0:8090
 EMAIL=admin@opensound.com
 PASSWORD=opensoundPass123
-WWS_PORT=1214
+WWS_PORT=1412
 EOF
   echo ".env file created with default values."
 else

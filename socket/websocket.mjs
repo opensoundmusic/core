@@ -4,8 +4,8 @@ import { broadcast } from './broadcast.mjs';
 
 const port = process.env.WWS_PORT;
 
-const wss = new WebSocketServer({ port: port });
-console.log(`WebSocket server running on ws://localhost:${port}`);
+const wss = new WebSocketServer({ port: port, host: '0.0.0.0' });
+console.log(`WebSocket server running on ws://0.0.0.0:${port}`);
 
 function heartbeat() {
     this.isAlive = true;

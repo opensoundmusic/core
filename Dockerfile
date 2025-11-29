@@ -36,7 +36,6 @@ RUN npm install
 COPY . .
 
 EXPOSE 1212
-EXPOSE 1214
-EXPOSE 8080
+EXPOSE 1412
 
 CMD ["node", "server.mjs"]
