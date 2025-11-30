@@ -388,7 +388,7 @@
         "type": "relation"
       },
       {
-        "cascadeDelete": false,
+        "cascadeDelete": true,
         "collectionId": "pbc_1906970480",
         "hidden": false,
         "id": "relation871231137",
