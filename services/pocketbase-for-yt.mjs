@@ -4,6 +4,7 @@ import fs from 'fs';
 import FormData from 'form-data';
 import { fileURLToPath } from 'url';
 import path from 'path';
+import { pathToFileURL } from 'url';
 import fetch from 'node-fetch';
 import { unlink } from 'fs/promises';
 import { pluginManager } from '../plugin-manager.mjs';
@@ -30,10 +31,13 @@ function getYouTubeMusicPlugin() {
 async function getPluginFunctions() {
     const plugin = getYouTubeMusicPlugin();
     
-    // Import functions from the plugin
-    const songInfoModule = await import(`file://${plugin.path}/functions/song_info.mjs`);
-    const coverDownloadModule = await import(`file://${plugin.path}/functions/cover_download.mjs`);
-    const songDownloadModule = await import(`file://${plugin.path}/functions/song_download.js`);
+    const songInfoPath = path.join(plugin.path, 'functions/song_info.mjs');
+    const coverDownloadPath = path.join(plugin.path, 'functions/cover_download.mjs');
+    const songDownloadPath = path.join(plugin.path, 'functions/song_download.js');
+    
+    const songInfoModule = await import(pathToFileURL(songInfoPath).href);
+    const coverDownloadModule = await import(pathToFileURL(coverDownloadPath).href);
+    const songDownloadModule = await import(pathToFileURL(songDownloadPath).href);
     
     return {
         getSongInfo: songInfoModule.getSongInfo,
@@ -54,7 +58,7 @@ export async function pocketbaseInit() {
 
 export async function insertSongData(data, downloadCovers) {
     try {
-const filePath = path.resolve(__dirname, '../plugins/ytmusic-plugin/downloads', `${data.yt_id}.mp3`);
+        const filePath = path.resolve(__dirname, '../plugins/ytmusic-plugin/downloads', `${data.yt_id}.mp3`);
 
         if (!fs.existsSync(filePath)) {
             throw new Error(`File not found: ${filePath}`);
