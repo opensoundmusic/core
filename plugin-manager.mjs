@@ -1,6 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { pathToFileURL } from 'url';
 import { exec } from 'child_process';
 import { promisify } from 'util';
 import axios from 'axios';
@@ -47,12 +48,17 @@ export class PluginManager {
             const pluginPath = path.join(this.pluginsDir, pluginName);
             const manifestPath = path.join(pluginPath, 'plugin.json');
 
+            console.log(`\n=== Loading plugin: ${pluginName} ===`);
+            console.log('Plugin path:', pluginPath);
+            console.log('Manifest path:', manifestPath);
+
             if (!fs.existsSync(manifestPath)) {
                 console.warn(`Plugin ${pluginName} missing plugin.json`);
                 return false;
             }
 
             const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf-8'));
+            console.log('Manifest loaded:', manifest.name, 'v' + manifest.version);
 
             if (!manifest.enabled) {
                 console.log(`Plugin ${pluginName} is disabled`);
@@ -60,10 +66,26 @@ export class PluginManager {
             }
 
             const entryPoint = path.join(pluginPath, manifest.entry || 'index.mjs');
+            console.log('Entry point:', entryPoint);
+            console.log('Entry point exists:', fs.existsSync(entryPoint));
             
-            // Use cache for hot reload
-            const entryUrl = `file://${entryPoint}?t=${Date.now()}`;
+            // List files in plugin directory for debugging
+            console.log('Files in plugin directory:');
+            const files = fs.readdirSync(pluginPath, { recursive: true, withFileTypes: true });
+            files.forEach(file => {
+                const fullPath = path.join(file.path || pluginPath, file.name);
+                const relativePath = path.relative(pluginPath, fullPath);
+                console.log('  -', relativePath, file.isDirectory() ? '[DIR]' : '');
+            });
+            
+            // Use pathToFileURL for proper URL encoding
+            const entryUrl = pathToFileURL(entryPoint).href + `?t=${Date.now()}`;
+            console.log('Import URL:', entryUrl);
+            
+            console.log('Importing plugin module...');
             const pluginModule = await import(entryUrl);
+            console.log('Plugin module imported successfully');
+            console.log('Module exports:', Object.keys(pluginModule));
 
             const plugin = {
                 name: manifest.name,
@@ -76,15 +98,26 @@ export class PluginManager {
 
             // Initialize plugin if it has an init method
             if (pluginModule.default?.init) {
+                console.log('Calling plugin init()...');
                 await pluginModule.default.init();
+                console.log('Plugin init() completed');
             }
 
             this.plugins.set(manifest.name, plugin);
-            console.log(`Loaded plugin: ${manifest.name} v${manifest.version}`);
+            console.log(`Successfully loaded plugin: ${manifest.name} v${manifest.version}`);
             return true;
 
         } catch (error) {
-            console.error(`Failed to load plugin ${pluginName}:`, error.message);
+            console.error(`\nFailed to load plugin ${pluginName}:`);
+            console.error('Error message:', error.message);
+            console.error('Error stack:', error.stack);
+            
+            // If it's an import error, show more details
+            if (error.code === 'ERR_MODULE_NOT_FOUND') {
+                console.error('Module not found - this is an import resolution issue');
+                console.error('Requested module:', error.message);
+            }
+            
             return false;
         }
     }
