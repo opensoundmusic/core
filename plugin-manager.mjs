@@ -17,7 +17,7 @@ export class PluginManager {
         this.marketplaceCache = null;
         this.marketplaceCacheTime = null;
         this.CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
-        
+
         console.log('=== PLUGIN MANAGER DEBUG ===');
         console.log('__filename:', __filename);
         console.log('__dirname:', __dirname);
@@ -68,7 +68,7 @@ export class PluginManager {
             const entryPoint = path.join(pluginPath, manifest.entry || 'index.mjs');
             console.log('Entry point:', entryPoint);
             console.log('Entry point exists:', fs.existsSync(entryPoint));
-            
+
             // List files in plugin directory for debugging
             console.log('Files in plugin directory:');
             const files = fs.readdirSync(pluginPath, { recursive: true, withFileTypes: true });
@@ -77,11 +77,11 @@ export class PluginManager {
                 const relativePath = path.relative(pluginPath, fullPath);
                 console.log('  -', relativePath, file.isDirectory() ? '[DIR]' : '');
             });
-            
+
             // Use pathToFileURL for proper URL encoding
             const entryUrl = pathToFileURL(entryPoint).href + `?t=${Date.now()}`;
             console.log('Import URL:', entryUrl);
-            
+
             console.log('Importing plugin module...');
             const pluginModule = await import(entryUrl);
             console.log('Plugin module imported successfully');
@@ -111,22 +111,22 @@ export class PluginManager {
             console.error(`\nFailed to load plugin ${pluginName}:`);
             console.error('Error message:', error.message);
             console.error('Error stack:', error.stack);
-            
+
             // If it's an import error, show more details
             if (error.code === 'ERR_MODULE_NOT_FOUND') {
                 console.error('Module not found - this is an import resolution issue');
                 console.error('Requested module:', error.message);
             }
-            
+
             return false;
         }
     }
 
     async fetchMarketplace(githubOrg, githubToken = null) {
         const now = Date.now();
-        
+
         // Return cached data if available and fresh
-        if (this.marketplaceCache && this.marketplaceCacheTime && 
+        if (this.marketplaceCache && this.marketplaceCacheTime &&
             (now - this.marketplaceCacheTime) < this.CACHE_DURATION) {
             return this.marketplaceCache;
         }
@@ -158,10 +158,10 @@ export class PluginManager {
                     );
 
                     const manifest = manifestResponse.data;
-                    
+
                     // Check if already installed
                     const isInstalled = this.plugins.has(manifest.name);
-                    const installedVersion = isInstalled ? 
+                    const installedVersion = isInstalled ?
                         this.plugins.get(manifest.name).version : null;
 
                     pluginRepos.push({
@@ -243,7 +243,7 @@ export class PluginManager {
 
             // GitHub zips extract to folder-name-branch format
             const extractedDir = path.join(this.pluginsDir, `${pluginId}-main`);
-            
+
             // Rename to remove -main suffix
             if (fs.existsSync(extractedDir)) {
                 await execAsync(`mv "${extractedDir}" "${pluginPath}"`);
@@ -308,13 +308,13 @@ export class PluginManager {
 
         } catch (error) {
             console.error(`Failed to install plugin ${pluginId}:`, error.message);
-            
+
             // Cleanup on failure
             const pluginPath = path.join(this.pluginsDir, pluginId);
             const zipPath = path.join(this.pluginsDir, `${pluginId}.zip`);
-            
+
             if (fs.existsSync(pluginPath)) {
-                await execAsync(`rm -rf "${pluginPath}"`).catch(() => {});
+                await execAsync(`rm -rf "${pluginPath}"`).catch(() => { });
             }
             if (fs.existsSync(zipPath)) {
                 fs.unlinkSync(zipPath);
@@ -391,7 +391,7 @@ export class PluginManager {
 
             // GitHub zips extract to folder-name-branch format
             const extractedDir = path.join(this.pluginsDir, `${pluginId}-main`);
-            
+
             if (fs.existsSync(extractedDir)) {
                 await execAsync(`mv "${extractedDir}" "${tempPath}"`);
             }
@@ -408,7 +408,7 @@ export class PluginManager {
             // Check if package.json exists, if not create one from manifest dependencies
             const manifestPath = path.join(pluginPath, 'plugin.json');
             const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf-8'));
-            
+
             const packageJsonPath = path.join(pluginPath, 'package.json');
             if (!fs.existsSync(packageJsonPath) && manifest.dependencies) {
                 console.log('Creating package.json from manifest...');
@@ -456,18 +456,18 @@ export class PluginManager {
 
         } catch (error) {
             console.error(`Failed to update plugin ${pluginId}:`, error.message);
-            
+
             // Cleanup temp files on failure
             const zipPath = path.join(this.pluginsDir, `${pluginId}-update.zip`);
             const tempPath = path.join(this.pluginsDir, `${pluginId}-temp`);
-            
+
             if (fs.existsSync(zipPath)) {
                 fs.unlinkSync(zipPath);
             }
             if (fs.existsSync(tempPath)) {
-                await execAsync(`rm -rf "${tempPath}"`).catch(() => {});
+                await execAsync(`rm -rf "${tempPath}"`).catch(() => { });
             }
-            
+
             throw error;
         }
     }
@@ -495,6 +495,35 @@ export class PluginManager {
 
     getAllPlugins() {
         return Array.from(this.plugins.values());
+    }
+
+    getPluginStaticPath(pluginName) {
+        const plugin = this.plugins.get(pluginName);
+        if (!plugin) return null;
+
+        const iconsPath = path.join(plugin.path, 'icons');
+        return fs.existsSync(iconsPath) ? iconsPath : null;
+    }
+    getPluginIcons(pluginName) {
+        const plugin = this.plugins.get(pluginName);
+        if (!plugin) return null;
+
+        const iconsPath = path.join(plugin.path, 'icons');
+        if (!fs.existsSync(iconsPath)) return [];
+
+        try {
+            const files = fs.readdirSync(iconsPath, { withFileTypes: true });
+            return files
+                .filter(file => file.isFile())
+                .map(file => ({
+                    name: file.name,
+                    path: `/plugins/${pluginName}/icons/${file.name}`,
+                    ext: path.extname(file.name)
+                }));
+        } catch (error) {
+            console.error(`Error reading icons for ${pluginName}:`, error);
+            return [];
+        }
     }
 
     clearMarketplaceCache() {

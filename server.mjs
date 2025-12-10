@@ -7,7 +7,7 @@ import songRoutes from "./routes/songs.mjs";
 import wss from './socket/websocket.mjs';
 import { setWss, initBroadcastListener, wssInstance } from './socket/broadcast.mjs';
 import { pluginManager } from './plugin-manager.mjs';
-import pluginRoutes from './routes/plugins.mjs';
+import pluginRoutes, { mountPluginRoutes } from './routes/plugins.mjs';
 
 setWss(wss);
 
@@ -54,6 +54,23 @@ async function loadPlugins() {
             console.log(`Registered routes for plugin: ${plugin.name}`);
         }
     });
+
+    for (const plugin of pluginManager.getAllPlugins()) {
+        // Mount plugin static files (icons)
+        const staticPath = pluginManager.getPluginStaticPath(plugin.name);
+        if (staticPath) {
+            app.use(`/plugins/${plugin.name}/icons`, express.static(staticPath));
+            console.log(`Mounted static files for ${plugin.name} at /plugins/${plugin.name}/icons`);
+        }
+
+        // Mount plugin router if it has one
+        if (plugin.module.default?.getRouter) {
+            const router = plugin.module.default.getRouter();
+            app.use(`/plugins/${plugin.name}`, router);
+            console.log(`Mounted routes for ${plugin.name} at /plugins/${plugin.name}`);
+        }
+
+    }
 }
 
 app.get('/', (req, res) => {
@@ -74,9 +91,9 @@ app.get('/plugins', (req, res) => {
 });
 
 app.get('/health', (req, res) => {
-    res.send({ 
-        status: 'ok', 
-        queue: DOWNLOAD_QUEUE, 
+    res.send({
+        status: 'ok',
+        queue: DOWNLOAD_QUEUE,
         wss: (wssInstance !== null),
         plugins: pluginManager.getAllPlugins().length
     });
@@ -88,4 +105,5 @@ app.listen(PORT, async () => {
     await initBroadcastListener();
     await pocketbaseInit();
     await loadPlugins();
+    mountPluginRoutes(app);
 });
